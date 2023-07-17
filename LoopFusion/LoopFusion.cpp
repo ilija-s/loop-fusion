@@ -1,7 +1,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Analysis/LoopInfo.h"
 using namespace llvm;
 
 namespace {
@@ -22,21 +21,18 @@ namespace {
     
     void FuseLoops(Loop *L1, Loop *L2); // Function that will fuse loops based on previously established candidates.
 
-    bool runOnFunction(Function &F) override {
-      FusionCandidates = FindFusionCandidates(&F);
-      for (int i=0; i<FusionCandidates.size(); i++) {
-      	for (Loop* L1 : FusionCandidates[i]) {
-      	  for(Loop* L2 : FusionCandidates[i]) {
-      	    if(L1 != L2 && CanFuseLoops(L1, L2)) {
-      	      FuseLoops(L1, L2);
-      	    }
-      	  }
-      	}
-      }
-      return true; // Should return true in the future, as files will be changed.
-    }
-  };
-}
+  bool runOnFunction(Function &F) override {
+    // for each loop L: LoopInfo analysis pass is needed
+    //    collect fusion candidates - Use FusionCandidate class to determine
+    //    sort candidates into control-flow equivalent sets - impl comparison
+    //    for each CFE set:
+    //      for each pair of loops Li Lj
+    //        if (CanFuseLoops(Li, Lj)):
+    //          FuseLoops(Li, Lj)
+    return true;
+  }
+};
+} // namespace
 
 char LoopFusion::ID = 0;
 static RegisterPass<LoopFusion> X("loopfusion", "Loop Fusion Pass");
