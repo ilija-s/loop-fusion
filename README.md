@@ -16,5 +16,5 @@ cd ..
 
 ```shell
 clang -S -emit-llvm <filename>.cpp
-opt -load build/LoopFusion/libLoopFusion.so -loopfusion --enable-new-pm=0 -S <filename>.ll
+opt -load build/LoopFusion/libLoopFusion.so -loopfusion --enable-new-pm=0 -S <filename>.ll > /dev/null
 ```
