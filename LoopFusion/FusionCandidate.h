@@ -1,6 +1,10 @@
 #ifndef LIB_FUSIONCANDIDATE_H
 #define LIB_FUSIONCANDIDATE_H
 
+#include "llvm/Analysis/LoopInfo.h"
+
+using namespace llvm;
+
 /// Class used to represent a fusion candidate.
 class FusionCandidate {
 public:
