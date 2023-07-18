@@ -1,6 +1,8 @@
 add_library(LoopFusion MODULE
 	# List of source files
 	LoopFusion.cpp
+	FusionCandidate.h
+	FusionCandidate.cpp
 )
 
 target_compile_features(LoopFusion PRIVATE cxx_std_17)
