@@ -25,7 +25,7 @@ struct LoopFusion : public FunctionPass {
   bool CanFuseLoops(Loop *L1, Loop *L2) { return true; }
 
   /// Function that will fuse loops based on previously established candidates.
-  void FuseLoops(Loop *L1, Loop *L2) {
+  void FuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
     // Create a new loop with a combined loop bound that covers the iterations
     // of both loops being fused.
 
@@ -70,7 +70,7 @@ struct LoopFusion : public FunctionPass {
     }
 
     // Fuse loops - skip checking if loops can be fused for now.
-    FuseLoops(FusionCandidates[0], FusionCandidates[1]);
+    FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
 
     return true;
   }
