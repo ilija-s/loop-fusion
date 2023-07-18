@@ -25,7 +25,19 @@ struct LoopFusion : public FunctionPass {
   bool CanFuseLoops(Loop *L1, Loop *L2) { return true; }
 
   /// Function that will fuse loops based on previously established candidates.
-  void FuseLoops(Loop *L1, Loop *L2);
+  void FuseLoops(Loop *L1, Loop *L2) {
+    // Create a new loop with a combined loop bound that covers the iterations
+    // of both loops being fused.
+
+    // Modify the loop body to incorporate the instructions from both loops.
+    // We need to ensure that the instructions are ordered correctly to
+    // maintain correct program semantics.
+
+    // Update loop-carried dependencies, such as induction variables, to reflect
+    // the new loop structure.
+
+    // Remove the original loops from the LLVM IR.
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<ScalarEvolutionWrapperPass>();
@@ -47,13 +59,18 @@ struct LoopFusion : public FunctionPass {
     auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
+    // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
     for (const auto &L : FunctionLoops) {
       dbgs() << "Number of basic blocks: " << L->getNumBlocks() << "\n";
+      FusionCandidate FC(L);
+      if (FC.isCandidateForFusion()) {
+        FusionCandidates.emplace_back(FC);
+      }
     }
 
-    dbgs() << "Total number of loop basic blocks in a function: "
-           << FunctionLoops.capacity() << "\n";
+    // Fuse loops - skip checking if loops can be fused for now.
+    FuseLoops(FusionCandidates[0], FusionCandidates[1]);
 
     return true;
   }
