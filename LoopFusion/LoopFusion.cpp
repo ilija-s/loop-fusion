@@ -21,13 +21,18 @@ struct LoopFusion : public FunctionPass {
 
   LoopFusion() : FunctionPass(ID) {}
 
-  bool IdenticalTripCounts(FusionCandidate *L1, FusionCandidate *L2) {
-      return true;
+  bool SameTripCounts(Loop *L1, Loop *L2) {
+      auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+      const SCEV* TripCount1 = SE.getBackedgeTakenCount(L1);
+      dbgs() << *TripCount1 << '\n'; // Debug print.
+      const SCEV* TripCount2 = SE.getBackedgeTakenCount(L1);
+      dbgs() << *TripCount2 << '\n'; // Debug print.
+      return (TripCount1 == TripCount2);
   }
 
   /// Do all checks to figure out if loops can be fused.
   bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
-      return IdenticalTripCounts(L1, L2);
+      return SameTripCounts(L1->getLoop(), L2->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -63,7 +68,7 @@ struct LoopFusion : public FunctionPass {
     //          FuseLoops(Li, Lj)
 
     auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+    //auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
