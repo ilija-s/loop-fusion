@@ -1,6 +1,8 @@
 #include "FusionCandidate.h"
+#include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopNestAnalysis.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -21,18 +23,28 @@ struct LoopFusion : public FunctionPass {
 
   LoopFusion() : FunctionPass(ID) {}
 
-  bool SameTripCounts(Loop *L1, Loop *L2) {
-      auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-      const SCEV* TripCount1 = SE.getBackedgeTakenCount(L1);
-      dbgs() << *TripCount1 << '\n'; // Debug print.
-      const SCEV* TripCount2 = SE.getBackedgeTakenCount(L1);
-      dbgs() << *TripCount2 << '\n'; // Debug print.
-      return (TripCount1 == TripCount2);
+  bool haveSameTripCounts(Loop *L1, Loop *L2, ScalarEvolution &SE) {
+    const SCEV *TripCount1 = SE.getBackedgeTakenCount(L1);
+    if (isa<SCEVCouldNotCompute>(TripCount1)) {
+      dbgs() << "Trip count can not be computed.";
+      return false;
+    }
+    dbgs() << *TripCount1 << '\n'; // Debug print.
+
+    const SCEV *TripCount2 = SE.getBackedgeTakenCount(L2);
+    if (isa<SCEVCouldNotCompute>(TripCount2)) {
+      dbgs() << "Trip count can not be computed.";
+      return false;
+    }
+    dbgs() << *TripCount2 << '\n'; // Debug print.
+
+    return (TripCount1 == TripCount2);
   }
 
   /// Do all checks to figure out if loops can be fused.
-  bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
-      return SameTripCounts(L1->getLoop(), L2->getLoop());
+  bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
+                    ScalarEvolution &SE) {
+    return haveSameTripCounts(L1->getLoop(), L2->getLoop(), SE);
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -51,11 +63,15 @@ struct LoopFusion : public FunctionPass {
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
 
-    AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<ScalarEvolutionWrapperPass>();
+    AU.addPreserved<PostDominatorTreeWrapperPass>();
   }
 
   bool runOnFunction(Function &F) override {
@@ -68,7 +84,9 @@ struct LoopFusion : public FunctionPass {
     //          FuseLoops(Li, Lj)
 
     auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    //auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+    auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+    auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
