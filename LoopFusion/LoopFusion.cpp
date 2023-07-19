@@ -21,8 +21,14 @@ struct LoopFusion : public FunctionPass {
 
   LoopFusion() : FunctionPass(ID) {}
 
+  bool IdenticalTripCounts(FusionCandidate *L1, FusionCandidate *L2) {
+      return true;
+  }
+
   /// Do all checks to figure out if loops can be fused.
-  bool CanFuseLoops(Loop *L1, Loop *L2) { return true; }
+  bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
+      return IdenticalTripCounts(L1, L2);
+  }
 
   /// Function that will fuse loops based on previously established candidates.
   void FuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
@@ -69,8 +75,9 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
-    // Fuse loops - skip checking if loops can be fused for now.
-    FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
+    if(CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1])) {
+        FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
+    }
 
     return true;
   }
