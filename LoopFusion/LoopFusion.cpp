@@ -68,10 +68,7 @@ struct LoopFusion : public FunctionPass {
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
 
-    AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<ScalarEvolutionWrapperPass>();
-    AU.addPreserved<PostDominatorTreeWrapperPass>();
+    AU.setPreservesAll();
   }
 
   bool runOnFunction(Function &F) override {
@@ -91,15 +88,36 @@ struct LoopFusion : public FunctionPass {
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
     for (const auto &L : FunctionLoops) {
-      dbgs() << "Number of basic blocks: " << L->getNumBlocks() << "\n";
+      dbgs() << "\nNumber of basic blocks: " << L->getNumBlocks() << "\n";
+      auto Preheader = L->getLoopPreheader();
+      auto Header = L->getHeader();
+      auto ExitingBlock = L->getExitingBlock();
+      auto ExitBlock = L->getExitBlock();
+      auto Latch = L->getLoopLatch();
+      dbgs() << "\n"
+             << "\tPreheader: "
+             << (Preheader ? Preheader->getName() : "nullptr") << "\n"
+             << "\tHeader: " << (Header ? Header->getName() : "nullptr") << "\n"
+             << "\tExitingBB: "
+             << (ExitingBlock ? ExitingBlock->getName() : "nullptr") << "\n"
+             << "\tExitBB: " << (ExitBlock ? ExitBlock->getName() : "nullptr")
+             << "\n"
+             << "\tLatch: " << (Latch ? Latch->getName() : "nullptr") << "\n"
+             << "\n";
+      if (!SE.hasLoopInvariantBackedgeTakenCount(L)) {
+        dbgs() << "Loop " << L->getName() << " trip count not computable\n";
+      }
+      if (!L->isLoopSimplifyForm()) {
+        dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
+      }
       FusionCandidate FC(L);
       if (FC.isCandidateForFusion()) {
         FusionCandidates.emplace_back(FC);
       }
     }
 
-    if(CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1])) {
-        FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
+    if (CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
+      FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
     }
 
     return true;
