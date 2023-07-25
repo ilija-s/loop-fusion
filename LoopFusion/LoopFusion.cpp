@@ -22,10 +22,23 @@ struct LoopFusion : public FunctionPass {
   LoopFusion() : FunctionPass(ID) {}
 
   /// Do all checks to figure out if loops can be fused.
-  bool CanFuseLoops(Loop *L1, Loop *L2) { return true; }
+  bool CanFuseLoops(Loop *L1, Loop *L2) { 
+
+    // Checking if loops are adjacent
+    SmallVector<BasicBlock*> ExitBlocks1;
+    SmallVector<BasicBlock*> ExitBlocks2;
+    L1->getExitBlocks(ExitBlocks1);
+    L2->getExitBlocks(ExitBlocks2);
+
+    return
+      ExitBlocks1.size() == 1 && ExitBlocks2.size() <= 1
+      && *ExitBlocks1.begin() == L2->getLoopPreheader();
+
+  }
 
   /// Function that will fuse loops based on previously established candidates.
   void FuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
+
     // Create a new loop with a combined loop bound that covers the iterations
     // of both loops being fused.
 
@@ -37,6 +50,14 @@ struct LoopFusion : public FunctionPass {
     // the new loop structure.
 
     // Remove the original loops from the LLVM IR.
+
+    // Debug message
+    if (CanFuseLoops(L1->loop(), L2->loop())) {
+      dbgs() << "Can fuse loops\n";
+    }
+    else {
+      dbgs() << "Cannot fuse loops\n";
+    }
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -70,7 +91,8 @@ struct LoopFusion : public FunctionPass {
     }
 
     // Fuse loops - skip checking if loops can be fused for now.
-    FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
+    FuseLoops(&FusionCandidates[1], &FusionCandidates[0]);
+    FuseLoops(&FusionCandidates[2], &FusionCandidates[1]);
 
     return true;
   }
