@@ -12,6 +12,7 @@ public:
 
   /// Checks if a loop is a candidate for a loop fusion.
   auto isCandidateForFusion() const -> bool;
+  auto loop() const -> Loop*;
 
 private:
   // Loop that represents a fusion candidate
