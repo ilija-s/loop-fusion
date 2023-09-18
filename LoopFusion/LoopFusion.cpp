@@ -5,8 +5,14 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+#include "llvm/Transforms/Scalar/LoopPassManager.h"
+
 using namespace llvm;
 
 namespace {
@@ -17,6 +23,7 @@ using FusionCandidatesTy = SmallVector<FusionCandidate>;
 using CFESetsTy = SmallVector<std::set<FusionCandidate>>;
 
 struct LoopFusion : public FunctionPass {
+
   FusionCandidatesTy FusionCandidates;
   CFESetsTy CFESets;
   static char ID; // Pass identification, replacement for typeid
@@ -24,21 +31,36 @@ struct LoopFusion : public FunctionPass {
   LoopFusion() : FunctionPass(ID) {}
 
   bool haveSameTripCounts(Loop *L1, Loop *L2, ScalarEvolution &SE) {
-    const SCEV *TripCount1 = SE.getBackedgeTakenCount(L1);
-    if (isa<SCEVCouldNotCompute>(TripCount1)) {
-      dbgs() << "Trip count can not be computed.";
-      return false;
-    }
-    dbgs() << *TripCount1 << '\n'; // Debug print.
+    BasicBlock *Loop1Header = L1->getHeader();
+    int Loop1Bound = -1;
+    bool IsLoop1BoundConstant = false;
 
-    const SCEV *TripCount2 = SE.getBackedgeTakenCount(L2);
-    if (isa<SCEVCouldNotCompute>(TripCount2)) {
-      dbgs() << "Trip count can not be computed.";
-      return false;
+    for (Instruction &Instr : *Loop1Header) {
+      if (isa<ICmpInst>(&Instr)) {
+        if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr.getOperand(1))) {
+          Loop1Bound = ConstInt->getSExtValue();
+          IsLoop1BoundConstant = true;
+        }
+      }
     }
-    dbgs() << *TripCount2 << '\n'; // Debug print.
 
-    return (TripCount1 == TripCount2);
+    BasicBlock *Loop2Header = L2->getHeader();
+    int Loop2Bound = -1;
+    bool IsLoop2BoundConstant = false;
+
+    for (Instruction &Instr : *Loop2Header) {
+      if (isa<ICmpInst>(&Instr)) {
+        if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr.getOperand(1))) {
+          Loop2Bound = ConstInt->getSExtValue();
+          IsLoop2BoundConstant = true;
+        }
+      }
+    }
+
+    if(IsLoop1BoundConstant && IsLoop2BoundConstant) {
+      return Loop1Bound == Loop2Bound;
+    }
+    return false;
   }
 
   /// Do all checks to figure out if loops can be fused.
@@ -63,12 +85,13 @@ struct LoopFusion : public FunctionPass {
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
+      AU.addRequiredID(LoopSimplifyID);
+      AU.addRequired<LoopInfoWrapperPass>();
+      AU.addRequired<DominatorTreeWrapperPass>();
+      AU.addRequired<ScalarEvolutionWrapperPass>();
+      AU.addRequired<PostDominatorTreeWrapperPass>();
 
-    AU.setPreservesAll();
+      AU.setPreservesAll();
   }
 
   bool runOnFunction(Function &F) override {
@@ -104,9 +127,13 @@ struct LoopFusion : public FunctionPass {
              << "\n"
              << "\tLatch: " << (Latch ? Latch->getName() : "nullptr") << "\n"
              << "\n";
+
+      dbgs() << "HAVE SAME TRIP COUNTS:" << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1], SE) << '\n';
+
       if (!SE.hasLoopInvariantBackedgeTakenCount(L)) {
         dbgs() << "Loop " << L->getName() << " trip count not computable\n";
-      }
+      }          //LoopCounter = VariablesMap[Instr.getOperand(0)];
+
       if (!L->isLoopSimplifyForm()) {
         dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
       }
