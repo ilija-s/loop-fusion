@@ -25,13 +25,29 @@ using CFESetsTy = SmallVector<std::set<FusionCandidate>>;
 struct LoopFusion : public FunctionPass {
 
   FusionCandidatesTy FusionCandidates;
+  std::unordered_map<Value *, Value *> VariablesMap;
   CFESetsTy CFESets;
   static char ID; // Pass identification, replacement for typeid
 
   LoopFusion() : FunctionPass(ID) {}
 
+  void MapVariables(Function *F)
+  {
+    for (BasicBlock &BB : *F) {
+      for (Instruction &Instr : BB) {
+        if (isa<LoadInst>(&Instr)) {
+          VariablesMap[&Instr] = Instr.getOperand(0);
+        }
+      }
+    }
+  }
+
   bool haveSameTripCounts(Loop *L1, Loop *L2, ScalarEvolution &SE) {
     BasicBlock *Loop1Header = L1->getHeader();
+
+    Value *Variable1;
+    Value *Variable2;
+
     int Loop1Bound = -1;
     bool IsLoop1BoundConstant = false;
 
@@ -40,6 +56,8 @@ struct LoopFusion : public FunctionPass {
         if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr.getOperand(1))) {
           Loop1Bound = ConstInt->getSExtValue();
           IsLoop1BoundConstant = true;
+        } else {
+          Variable1 = VariablesMap[Instr.getOperand(1)];
         }
       }
     }
@@ -54,12 +72,19 @@ struct LoopFusion : public FunctionPass {
           Loop2Bound = ConstInt->getSExtValue();
           IsLoop2BoundConstant = true;
         }
+        else {
+          Variable2 = VariablesMap[Instr.getOperand(1)];
+        }
       }
     }
 
     if(IsLoop1BoundConstant && IsLoop2BoundConstant) {
       return Loop1Bound == Loop2Bound;
     }
+    else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
+      return Variable1 == Variable2;
+    }
+
     return false;
   }
 
@@ -107,6 +132,8 @@ struct LoopFusion : public FunctionPass {
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
+
+    MapVariables(&F);
 
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
