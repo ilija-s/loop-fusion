@@ -5,3 +5,7 @@
 #include "FusionCandidate.h"
 
 auto FusionCandidate::isCandidateForFusion() const -> bool { return true; }
+
+Loop *FusionCandidate::getLoop() {
+    return L;
+}
