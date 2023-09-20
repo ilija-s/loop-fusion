@@ -78,11 +78,41 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
+    int Loop1StartValue = -1;
+    BasicBlock *PreLoop1 = L1->getLoopPredecessor();
+    if (PreLoop1) {
+      for(BasicBlock::iterator I = PreLoop1->begin(), E = PreLoop1->end(); I!=E; ++I){
+        Instruction *Instr = &*I;
+        if(isa<StoreInst>(Instr)) {
+          if(ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(0))) {
+            Loop1StartValue = ConstInt->getSExtValue(); // Last store value will always be the loop counter start value.
+          }
+        }
+      }
+    } else {
+      return false;
+    }
+
+    int Loop2StartValue = -1;
+    BasicBlock *PreLoop2 = L2->getLoopPredecessor();
+    if (PreLoop2) {
+      for(BasicBlock::iterator I = PreLoop2->begin(), E = PreLoop2->end(); I!=E; ++I){
+        Instruction *Instr = &*I;
+        if(isa<StoreInst>(Instr)) {
+          if(ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(0))) {
+            Loop2StartValue = ConstInt->getSExtValue(); // Last store value will always be the loop counter start value.
+          }
+        }
+      }
+    } else {
+      return false;
+    }
+
     if(IsLoop1BoundConstant && IsLoop2BoundConstant) {
-      return Loop1Bound == Loop2Bound;
+      return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue;
     }
     else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
-      return Variable1 == Variable2;
+      return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue;
     }
 
     return false;
