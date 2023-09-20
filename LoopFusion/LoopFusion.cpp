@@ -42,7 +42,7 @@ struct LoopFusion : public FunctionPass {
     }
   }
 
-  bool haveSameTripCounts(Loop *L1, Loop *L2, ScalarEvolution &SE) {
+  bool HaveSameTripCounts(Loop *L1, Loop *L2) {
     BasicBlock *Loop1Header = L1->getHeader();
 
     Value *Variable1;
@@ -79,6 +79,8 @@ struct LoopFusion : public FunctionPass {
     }
 
     int Loop1StartValue = -1;
+    bool IsLoop1StartValueConstant = false;
+    Value *StartVariable1;
     BasicBlock *PreLoop1 = L1->getLoopPredecessor();
     if (PreLoop1) {
       for(BasicBlock::iterator I = PreLoop1->begin(), E = PreLoop1->end(); I!=E; ++I){
@@ -86,6 +88,10 @@ struct LoopFusion : public FunctionPass {
         if(isa<StoreInst>(Instr)) {
           if(ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(0))) {
             Loop1StartValue = ConstInt->getSExtValue(); // Last store value will always be the loop counter start value.
+            IsLoop1StartValueConstant = true;
+          } else {
+            StartVariable1 = VariablesMap[Instr->getOperand(0)];
+            IsLoop1StartValueConstant = false;
           }
         }
       }
@@ -94,6 +100,8 @@ struct LoopFusion : public FunctionPass {
     }
 
     int Loop2StartValue = -1;
+    bool IsLoop2StartValueConstant = false;
+    Value *StartVariable2;
     BasicBlock *PreLoop2 = L2->getLoopPredecessor();
     if (PreLoop2) {
       for(BasicBlock::iterator I = PreLoop2->begin(), E = PreLoop2->end(); I!=E; ++I){
@@ -101,18 +109,35 @@ struct LoopFusion : public FunctionPass {
         if(isa<StoreInst>(Instr)) {
           if(ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(0))) {
             Loop2StartValue = ConstInt->getSExtValue(); // Last store value will always be the loop counter start value.
+            IsLoop2StartValueConstant = true;
+          } else {
+            StartVariable2 = VariablesMap[Instr->getOperand(0)];
+            IsLoop2StartValueConstant = false;
           }
         }
       }
     } else {
       return false;
     }
-
     if(IsLoop1BoundConstant && IsLoop2BoundConstant) {
-      return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue;
+      if(IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
+        return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue;
+      }
+      else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
+        return Loop1Bound == Loop2Bound && StartVariable1 == StartVariable2;
+      } else {
+        return false;
+      }
     }
     else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
-      return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue;
+      if(IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
+        return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue;
+      }
+      else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
+        return Variable1 == Variable2 && StartVariable1 == StartVariable2;
+      } else {
+        return false;
+      }
     }
 
     return false;
@@ -121,7 +146,7 @@ struct LoopFusion : public FunctionPass {
   /// Do all checks to figure out if loops can be fused.
   bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return haveSameTripCounts(L1->getLoop(), L2->getLoop(), SE);
+    return HaveSameTripCounts(L1->getLoop(), L2->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -185,11 +210,7 @@ struct LoopFusion : public FunctionPass {
              << "\tLatch: " << (Latch ? Latch->getName() : "nullptr") << "\n"
              << "\n";
 
-      dbgs() << "HAVE SAME TRIP COUNTS:" << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1], SE) << '\n';
-
-      if (!SE.hasLoopInvariantBackedgeTakenCount(L)) {
-        dbgs() << "Loop " << L->getName() << " trip count not computable\n";
-      }          //LoopCounter = VariablesMap[Instr.getOperand(0)];
+      dbgs() << "HAVE SAME TRIP COUNTS: " << HaveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
 
       if (!L->isLoopSimplifyForm()) {
         dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
