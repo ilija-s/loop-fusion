@@ -3,9 +3,27 @@
 //
 
 #include "FusionCandidate.h"
+#include "llvm/IR/BasicBlock.h"
 
-auto FusionCandidate::isCandidateForFusion() const -> bool { return true; }
+auto FusionCandidate::isCandidateForFusion() const -> bool { 
+    return hasSingleEntryPoint() & hasSingleExitPoint(); 
+}
 
 auto FusionCandidate::loop() const -> Loop* {
     return L;
 }
+
+auto FusionCandidate::hasSingleEntryPoint() const -> bool {
+    
+    BasicBlock* LoopPredecessor = L->getLoopPredecessor();
+
+    return LoopPredecessor != nullptr;
+}
+
+auto FusionCandidate::hasSingleExitPoint() const -> bool {
+
+    SmallVector<BasicBlock*> ExitBlocks{};
+    L->getExitBlocks(ExitBlocks);
+
+    return ExitBlocks.size() == 1;
+}   

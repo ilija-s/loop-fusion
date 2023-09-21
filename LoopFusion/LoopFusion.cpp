@@ -3,6 +3,7 @@
 #include "llvm/Analysis/LoopNestAnalysis.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -15,25 +16,31 @@ using FusionCandidatesTy = SmallVector<FusionCandidate>;
 using CFESetsTy = SmallVector<std::set<FusionCandidate>>;
 
 struct LoopFusion : public FunctionPass {
+
   FusionCandidatesTy FusionCandidates;
   CFESetsTy CFESets;
   static char ID; // Pass identification, replacement for typeid
 
   LoopFusion() : FunctionPass(ID) {}
 
+  bool AreLoopsAdjacent(Loop* L1, Loop* L2) {
+
+    // At this point we know that L1 and L2 are both candidates
+    // This means that L1 has one exit block and L2 has one entering block
+    // The only thing is to check if the exit block of L1 is the same as the
+    // entry block of L2
+
+    BasicBlock* L1ExitBlock = L1->getExitBlock();
+    BasicBlock* L2Preheader = L2->getLoopPreheader();
+
+    return L1ExitBlock == L2Preheader;
+  }
+
   /// Do all checks to figure out if loops can be fused.
   bool CanFuseLoops(Loop *L1, Loop *L2) { 
 
-    // Checking if loops are adjacent
-    SmallVector<BasicBlock*> ExitBlocks1;
-    SmallVector<BasicBlock*> ExitBlocks2;
-    L1->getExitBlocks(ExitBlocks1);
-    L2->getExitBlocks(ExitBlocks2);
-
-    return
-      ExitBlocks1.size() == 1 && ExitBlocks2.size() <= 1
-      && *ExitBlocks1.begin() == L2->getLoopPreheader();
-
+    return AreLoopsAdjacent(L1, L2);
+    
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -90,9 +97,10 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
+    dbgs() << FusionCandidates.size();
+
     // Fuse loops - skip checking if loops can be fused for now.
     FuseLoops(&FusionCandidates[1], &FusionCandidates[0]);
-    FuseLoops(&FusionCandidates[2], &FusionCandidates[1]);
 
     return true;
   }

@@ -15,6 +15,10 @@ public:
   auto loop() const -> Loop*;
 
 private:
+
+  auto hasSingleEntryPoint() const -> bool;
+  auto hasSingleExitPoint() const -> bool;
+  
   // Loop that represents a fusion candidate
   Loop *L;
 };
