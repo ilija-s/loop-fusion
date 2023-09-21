@@ -208,10 +208,25 @@ struct LoopFusion : public FunctionPass {
     return HaveSameBound(L1,L2) && HaveSameStartValue(L1,L2) && HaveSameLatchValue(L1,L2);
   }
 
+  bool areDependant(FusionCandidate *F1, FusionCandidate *F2) {
+    std::vector<Value *> Variables1 = F1->getLoopVariables();
+    std::vector<Value *> Variables2 = F2->getLoopVariables();
+
+    for(Value *V1 : Variables1) {
+      for(Value *V2 : Variables2) {
+        //dbgs() << "VALUE 1: " << V1 << ", VALUE 2: "  << V2 << '\n';
+        if (V1 == V2) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /// Do all checks to figure out if loops can be fused.
   bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return HaveSameTripCounts(L1->getLoop(), L2->getLoop());
+    return HaveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependant(L1, L2);
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -286,6 +301,12 @@ struct LoopFusion : public FunctionPass {
         FusionCandidates.emplace_back(FC);
       }
     }
+
+    dbgs() << "ARE DEPENDANT: "
+           << areDependant(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
+
+    dbgs() << "CAN FUSE: "
+           << CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE) << '\n';
 
     if (CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
       FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
