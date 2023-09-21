@@ -127,19 +127,105 @@ struct LoopFusion : public FunctionPass {
     } else {
       return false;
     }
+
+    BinaryOperator *BinOp1;
+    int Loop1LatchValue = -1;
+    bool IsLoop1LatchConstant = false;
+    Value *Latch1Variable;
+    BasicBlock *Loop1Latch = L1->getLoopLatch();
+    if (Loop1Latch) {
+      for(BasicBlock::iterator I = Loop1Latch->begin(), E = Loop1Latch->end(); I != E; ++I) {
+        Instruction *Instr = &*I;
+        if (isa<BinaryOperator>(Instr)) {
+          BinOp1 = cast<BinaryOperator>(Instr);
+          if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(1))) {
+            Loop1LatchValue = ConstInt->getSExtValue();
+            IsLoop1LatchConstant = true;
+          } else {
+            Latch1Variable = VariablesMap[Instr->getOperand(1)];
+            IsLoop1LatchConstant = false;
+          }
+        }
+      }
+    } else {
+      return false;
+    }
+
+    BinaryOperator *BinOp2;
+    int Loop2LatchValue = -1;
+    bool IsLoop2LatchConstant = false;
+    Value *Latch2Variable;
+    BasicBlock *Loop2Latch = L2->getLoopLatch();
+    if (Loop2Latch) {
+      for(BasicBlock::iterator I = Loop2Latch->begin(), E = Loop2Latch->end(); I != E; ++I) {
+        Instruction *Instr = &*I;
+        if (isa<BinaryOperator>(Instr)) {
+          BinOp2 = cast<BinaryOperator>(Instr);
+          if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(1))) {
+            Loop2LatchValue = ConstInt->getSExtValue();
+            IsLoop2LatchConstant = true;
+          } else {
+            Latch2Variable = VariablesMap[Instr->getOperand(1)];
+            IsLoop2LatchConstant = false;
+          }
+        }
+      }
+    } else {
+      return false;
+    }
+
+    if (BinOp1->getOpcode() != BinOp2->getOpcode()) {
+      return false;
+    }
+
     if (IsLoop1BoundConstant && IsLoop2BoundConstant) {
       if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
-        return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue;
-      } else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
-        return Loop1Bound == Loop2Bound && StartVariable1 == StartVariable2;
+        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
+          return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue && Loop1LatchValue == Loop2LatchValue;
+        }
+        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
+          return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue && Latch1Variable == Latch2Variable;
+        }
+        else {
+          return false;
+        }
+      }
+      else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
+        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
+          return Loop1Bound == Loop2Bound && StartVariable1 == StartVariable2 && Loop1LatchValue == Loop2LatchValue;
+        }
+        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
+          return Loop1Bound == Loop2Bound && StartVariable1 == StartVariable2 && Latch1Variable == Latch2Variable;
+        }
+        else {
+          return false;
+        }
       } else {
         return false;
       }
-    } else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
+    }
+    else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
       if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
-        return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue;
-      } else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
-        return Variable1 == Variable2 && StartVariable1 == StartVariable2;
+        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
+          return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue && Loop1LatchValue == Loop2LatchValue;
+        }
+        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
+          return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue && Latch1Variable == Latch2Variable;
+        }
+        else {
+          return false;
+        }
+      }
+      else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
+        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
+          return Variable1 == Variable2 && StartVariable1 == StartVariable2 && Loop1LatchValue == Loop2LatchValue;
+        }
+        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
+          return Variable1 == Variable2 && StartVariable1 == StartVariable2 && Latch1Variable == Latch2Variable;
+        }
+        else {
+          return false;
+        }
       } else {
         return false;
       }
