@@ -41,7 +41,7 @@ struct LoopFusion : public FunctionPass {
     }
   }
 
-  bool HaveSameTripCounts(Loop *L1, Loop *L2) {
+  bool HaveSameBound(Loop *L1, Loop *L2) {
     BasicBlock *Loop1Header = L1->getHeader();
 
     Value *Variable1;
@@ -78,6 +78,15 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
+    if (IsLoop1BoundConstant && IsLoop2BoundConstant) {
+      return Loop1Bound == Loop2Bound;
+    } else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
+      return Variable1 == Variable2;
+    }
+    return false;
+  }
+
+  bool HaveSameStartValue(Loop *L1, Loop *L2) {
     int Loop1StartValue = -1;
     bool IsLoop1StartValueConstant = false;
     Value *StartVariable1;
@@ -128,6 +137,15 @@ struct LoopFusion : public FunctionPass {
       return false;
     }
 
+    if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
+      return Loop1StartValue == Loop2StartValue;
+    } else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
+      return StartVariable1 == StartVariable2;
+    }
+    return false;
+  }
+
+  bool HaveSameLatchValue(Loop *L1, Loop *L2) {
     BinaryOperator *BinOp1;
     int Loop1LatchValue = -1;
     bool IsLoop1LatchConstant = false;
@@ -178,60 +196,16 @@ struct LoopFusion : public FunctionPass {
       return false;
     }
 
-    if (IsLoop1BoundConstant && IsLoop2BoundConstant) {
-      if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
-        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
-          return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue && Loop1LatchValue == Loop2LatchValue;
-        }
-        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
-          return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue && Latch1Variable == Latch2Variable;
-        }
-        else {
-          return false;
-        }
-      }
-      else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
-        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
-          return Loop1Bound == Loop2Bound && StartVariable1 == StartVariable2 && Loop1LatchValue == Loop2LatchValue;
-        }
-        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
-          return Loop1Bound == Loop2Bound && StartVariable1 == StartVariable2 && Latch1Variable == Latch2Variable;
-        }
-        else {
-          return false;
-        }
-      } else {
-        return false;
-      }
+    if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
+      return Loop1LatchValue == Loop2LatchValue;
+    } else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
+      return Latch1Variable == Latch2Variable;
     }
-    else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
-      if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
-        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
-          return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue && Loop1LatchValue == Loop2LatchValue;
-        }
-        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
-          return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue && Latch1Variable == Latch2Variable;
-        }
-        else {
-          return false;
-        }
-      }
-      else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
-        if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
-          return Variable1 == Variable2 && StartVariable1 == StartVariable2 && Loop1LatchValue == Loop2LatchValue;
-        }
-        else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
-          return Variable1 == Variable2 && StartVariable1 == StartVariable2 && Latch1Variable == Latch2Variable;
-        }
-        else {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    }
-
     return false;
+  }
+
+  bool HaveSameTripCounts(Loop *L1, Loop *L2) {
+    return HaveSameBound(L1,L2) && HaveSameStartValue(L1,L2) && HaveSameLatchValue(L1,L2);
   }
 
   /// Do all checks to figure out if loops can be fused.
