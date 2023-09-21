@@ -14,6 +14,8 @@ public:
   auto isCandidateForFusion() const -> bool;
   auto loop() const -> Loop*;
 
+  Loop* getLoop();
+
 private:
 
   auto hasSingleEntryPoint() const -> bool;

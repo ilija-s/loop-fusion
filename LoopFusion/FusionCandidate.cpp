@@ -6,7 +6,7 @@
 #include "llvm/IR/BasicBlock.h"
 
 auto FusionCandidate::isCandidateForFusion() const -> bool { 
-    return hasSingleEntryPoint() & hasSingleExitPoint(); 
+    return hasSingleEntryPoint() && hasSingleExitPoint(); 
 }
 
 auto FusionCandidate::loop() const -> Loop* {
@@ -27,3 +27,7 @@ auto FusionCandidate::hasSingleExitPoint() const -> bool {
 
     return ExitBlocks.size() == 1;
 }   
+
+Loop *FusionCandidate::getLoop() {
+    return L;
+}
