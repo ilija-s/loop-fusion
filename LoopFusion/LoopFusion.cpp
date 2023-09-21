@@ -242,14 +242,6 @@ struct LoopFusion : public FunctionPass {
     // the new loop structure.
 
     // Remove the original loops from the LLVM IR.
-
-    // Debug message
-    if (CanFuseLoops(L1->loop(), L2->loop())) {
-      dbgs() << "Can fuse loops\n";
-    }
-    else {
-      dbgs() << "Cannot fuse loops\n";
-    }
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
