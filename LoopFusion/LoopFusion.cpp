@@ -27,7 +27,6 @@ using FusionCandidatesTy = SmallVector<FusionCandidate>;
 using CFESetsTy = SmallVector<std::set<FusionCandidate>>;
 
 struct LoopFusion : public FunctionPass {
-
   FusionCandidatesTy FusionCandidates;
   std::unordered_map<Value *, Value *> VariablesMap;
   CFESetsTy CFESets;
@@ -278,8 +277,31 @@ struct LoopFusion : public FunctionPass {
     // We need to ensure that the instructions are ordered correctly to
     // maintain correct program semantics.
 
-    // Update loop-carried dependencies, such as induction variables, to reflect
-    // the new loop structure.
+    // Move instructions from L1 Latch to L2 Latch.
+    moveInstructionsToTheBeginning(*L1->getLatch(), *L2->getLatch(), DT, PDT,
+                                   DI);
+    MergeBlockIntoPredecessor(L1->getLatch()->getUniqueSuccessor(), nullptr,
+                              &LI);
+
+    // Recalculating Dominator and Post-Dominator Trees
+    DT.recalculate(F);
+    PDT.recalculate(F);
+
+    // Merging all Loop2 blocks with Loop1 blocks
+    SmallVector<BasicBlock *> Blocks(L2->getLoop()->blocks());
+    for (BasicBlock *BB : Blocks) {
+      L1->getLoop()->addBlockEntry(BB);
+      L2->getLoop()->removeBlockFromLoop(BB);
+
+      if (LI.getLoopFor(BB) != L2->getLoop())
+        continue;
+      LI.changeLoopFor(BB, L1->getLoop());
+    }
+
+    dbgs() << "Printing Loop1 blocks.\n";
+    for (auto &Block : L1->getLoop()->blocks()) {
+      dbgs() << *Block;
+    }
 
     // Remove the original loops from the LLVM IR.
   }
