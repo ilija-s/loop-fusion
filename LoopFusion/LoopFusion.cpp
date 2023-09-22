@@ -31,7 +31,7 @@ struct LoopFusion : public FunctionPass {
 
   LoopFusion() : FunctionPass(ID) {}
 
-  void MapVariables(Function *F) {
+  void mapVariables(Function *F) {
     for (BasicBlock &BB : *F) {
       for (Instruction &Instr : BB) {
         if (isa<LoadInst>(&Instr)) {
@@ -41,7 +41,7 @@ struct LoopFusion : public FunctionPass {
     }
   }
 
-  bool HaveSameBound(Loop *L1, Loop *L2) {
+  bool haveSameBound(Loop *L1, Loop *L2) {
     BasicBlock *Loop1Header = L1->getHeader();
 
     Value *Variable1;
@@ -80,13 +80,14 @@ struct LoopFusion : public FunctionPass {
 
     if (IsLoop1BoundConstant && IsLoop2BoundConstant) {
       return Loop1Bound == Loop2Bound;
-    } else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
+    }
+    if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
       return Variable1 == Variable2;
     }
     return false;
   }
 
-  bool HaveSameStartValue(Loop *L1, Loop *L2) {
+  bool haveSameStartValue(Loop *L1, Loop *L2) {
     int Loop1StartValue = -1;
     bool IsLoop1StartValueConstant = false;
     Value *StartVariable1;
@@ -139,13 +140,14 @@ struct LoopFusion : public FunctionPass {
 
     if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
       return Loop1StartValue == Loop2StartValue;
-    } else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
+    }
+    if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
       return StartVariable1 == StartVariable2;
     }
     return false;
   }
 
-  bool HaveSameLatchValue(Loop *L1, Loop *L2) {
+  bool haveSameLatchValue(Loop *L1, Loop *L2) {
     BinaryOperator *BinOp1;
     int Loop1LatchValue = -1;
     bool IsLoop1LatchConstant = false;
@@ -198,17 +200,19 @@ struct LoopFusion : public FunctionPass {
 
     if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
       return Loop1LatchValue == Loop2LatchValue;
-    } else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
+    }
+    if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
       return Latch1Variable == Latch2Variable;
     }
     return false;
   }
 
-  bool HaveSameTripCounts(Loop *L1, Loop *L2) {
-    return HaveSameBound(L1,L2) && HaveSameStartValue(L1,L2) && HaveSameLatchValue(L1,L2);
+  bool haveSameTripCounts(Loop *L1, Loop *L2) {
+    return haveSameBound(L1, L2) && haveSameStartValue(L1, L2) &&
+           haveSameLatchValue(L1, L2);
   }
 
-  bool areDependant(FusionCandidate *F1, FusionCandidate *F2) {
+  bool areDependent(FusionCandidate *F1, FusionCandidate *F2) {
     std::vector<Value *> Variables1 = F1->getLoopVariables();
     std::vector<Value *> Variables2 = F2->getLoopVariables();
 
@@ -224,13 +228,13 @@ struct LoopFusion : public FunctionPass {
   }
 
   /// Do all checks to figure out if loops can be fused.
-  bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
+  bool canFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return HaveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependant(L1, L2);
+    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2);
   }
 
   /// Function that will fuse loops based on previously established candidates.
-  void FuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
+  void fuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
     // Create a new loop with a combined loop bound that covers the iterations
     // of both loops being fused.
 
@@ -268,7 +272,7 @@ struct LoopFusion : public FunctionPass {
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
-    MapVariables(&F);
+    mapVariables(&F);
 
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
@@ -291,7 +295,7 @@ struct LoopFusion : public FunctionPass {
              << "\n";
 
       dbgs() << "HAVE SAME TRIP COUNTS: "
-             << HaveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
+             << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
 
       if (!L->isLoopSimplifyForm()) {
         dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
@@ -303,13 +307,13 @@ struct LoopFusion : public FunctionPass {
     }
 
     dbgs() << "ARE DEPENDANT: "
-           << areDependant(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
+           << areDependent(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
 
     dbgs() << "CAN FUSE: "
-           << CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE) << '\n';
+           << canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE) << '\n';
 
-    if (CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
-      FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
+    if (canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
+      fuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
     }
 
     return true;
