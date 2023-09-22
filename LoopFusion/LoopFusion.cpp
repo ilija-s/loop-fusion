@@ -314,6 +314,7 @@ struct LoopFusion : public FunctionPass {
     AU.addRequiredID(LoopSimplifyID);
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<DependenceAnalysisWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
 
@@ -331,6 +332,7 @@ struct LoopFusion : public FunctionPass {
 
     auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    auto &DI = getAnalysis<DependenceAnalysisWrapperPass>().getDI();
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
@@ -368,8 +370,9 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
-    if (CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
-      FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
+    if (CanFuseLoops(&FusionCandidates[1], &FusionCandidates[0], SE)) {
+      FuseLoops(&FusionCandidates[1], &FusionCandidates[0], F, LI, DT, PDT, DI,
+                SE);
     }
 
     return true;
