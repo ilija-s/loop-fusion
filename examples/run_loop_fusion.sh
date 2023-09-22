@@ -7,6 +7,6 @@ for file in *.ll; do
   clang -c test.s -o test.o
   clang test.o -o test
   ./test
-  echo "OUTPUT for $file: $?"
+  printf "OUTPUT FOR $file: $?\n\n"
   rm -f $file test.s test.o test
 done
