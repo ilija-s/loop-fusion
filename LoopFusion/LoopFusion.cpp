@@ -13,6 +13,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeMoverUtils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 
@@ -237,7 +238,18 @@ struct LoopFusion : public FunctionPass {
   }
 
   /// Function that will fuse loops based on previously established candidates.
-  void FuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
+  void FuseLoops(FusionCandidate *L1, FusionCandidate *L2, Function &F,
+                 LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
+                 DependenceInfo &DI, ScalarEvolution &SE) {
+
+    dbgs() << "Moving instructions from Loop 2 preheader to Loop 1 preheader\n";
+    moveInstructionsToTheEnd(*L2->getPreheader(), *L1->getPreheader(), DT, PDT,
+                             DI);
+
+    dbgs() << "Redirecting basic blocks...\n";
+    // Replace all uses of Loop2 Preheader with Loop2 Header
+    L1->getExitingBlock()->getTerminator()->replaceUsesOfWith(
+        L2->getPreheader(), L2->getHeader());
 
     // Create a new loop with a combined loop bound that covers the iterations
     // of both loops being fused.
