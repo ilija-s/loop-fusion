@@ -21,6 +21,9 @@ void FusionCandidate::setLoopVariables() {
           if (isa<StoreInst>(&Instr)) {
             LoopVariables.push_back(Instr.getOperand(1));
           }
+          if (isa<GetElementPtrInst>(&Instr)) {
+            LoopVariables.push_back(Instr.getOperand(0));
+          }
         }
       }
     }
