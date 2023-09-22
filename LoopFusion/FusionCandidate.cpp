@@ -5,31 +5,23 @@
 #include "FusionCandidate.h"
 #include "llvm/IR/BasicBlock.h"
 
-auto FusionCandidate::isCandidateForFusion() const -> bool { 
-    return hasSingleEntryPoint() && hasSingleExitPoint(); 
-}
-
-auto FusionCandidate::loop() const -> Loop* {
-    return L;
+auto FusionCandidate::isCandidateForFusion() const -> bool {
+  return hasSingleEntryPoint() && hasSingleExitPoint();
 }
 
 auto FusionCandidate::hasSingleEntryPoint() const -> bool {
-    
-    BasicBlock* LoopPredecessor = L->getLoopPredecessor();
 
-    return LoopPredecessor != nullptr;
+  BasicBlock *LoopPredecessor = L->getLoopPredecessor();
+
+  return LoopPredecessor != nullptr;
 }
 
 auto FusionCandidate::hasSingleExitPoint() const -> bool {
 
-    SmallVector<BasicBlock*> ExitBlocks{};
-    L->getExitBlocks(ExitBlocks);
+  SmallVector<BasicBlock *> ExitBlocks{};
+  L->getExitBlocks(ExitBlocks);
 
-    return ExitBlocks.size() == 1;
-}   
-
-Loop *FusionCandidate::getLoop() {
-    return L;
+  return ExitBlocks.size() == 1;
 }
 
 void FusionCandidate::setLoopVariables() {

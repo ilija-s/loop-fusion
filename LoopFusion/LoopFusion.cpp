@@ -13,6 +13,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeMoverUtils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 
@@ -26,14 +27,12 @@ using FusionCandidatesTy = SmallVector<FusionCandidate>;
 using CFESetsTy = SmallVector<std::set<FusionCandidate>>;
 
 struct LoopFusion : public FunctionPass {
-
   FusionCandidatesTy FusionCandidates;
   std::unordered_map<Value *, Value *> VariablesMap;
   CFESetsTy CFESets;
   static char ID; // Pass identification, replacement for typeid
 
   LoopFusion() : FunctionPass(ID) {}
-
 
   bool areLoopsAdjacent(Loop *L1, Loop *L2) {
     // At this point we know that L1 and L2 are both candidates
@@ -236,9 +235,9 @@ struct LoopFusion : public FunctionPass {
     std::vector<Value *> Variables1 = F1->getLoopVariables();
     std::vector<Value *> Variables2 = F2->getLoopVariables();
 
-    for(Value *V1 : Variables1) {
-      for(Value *V2 : Variables2) {
-        //dbgs() << "VALUE 1: " << V1 << ", VALUE 2: "  << V2 << '\n';
+    for (Value *V1 : Variables1) {
+      for (Value *V2 : Variables2) {
+        // dbgs() << "VALUE 1: " << V1 << ", VALUE 2: "  << V2 << '\n';
         if (V1 == V2) {
           return true;
         }
@@ -250,29 +249,79 @@ struct LoopFusion : public FunctionPass {
   /// Do all checks to figure out if loops can be fused.
   bool canFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2) && areLoopsAdjacent(L2->getLoop(), L1->getLoop());
+    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) &&
+           !areDependent(L1, L2) &&
+           areLoopsAdjacent(L2->getLoop(), L1->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
-  void fuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
+  void FuseLoops(FusionCandidate *L1, FusionCandidate *L2, Function &F,
+                 LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
+                 DependenceInfo &DI, ScalarEvolution &SE) {
 
-    // Create a new loop with a combined loop bound that covers the iterations
-    // of both loops being fused.
+    // Moving instructions from Loop 2 Preheader to Loop 1 Preheader
+    moveInstructionsToTheEnd(*L2->getPreheader(), *L1->getPreheader(), DT, PDT,
+                             DI);
+
+    // Replace all uses of Loop2 Preheader with Loop2 Header
+    L1->getExitingBlock()->getTerminator()->replaceUsesOfWith(
+        L2->getPreheader(), L2->getHeader());
+
+    // Preheader of Loop2 is not used anymore
+    L2->getPreheader()->getTerminator()->eraseFromParent();
+    new UnreachableInst(L2->getPreheader()->getContext(), L2->getPreheader());
+
+    // Loop1 latch now jumps to the Loop2 header and Loop2 latch jumps to the
+    // Loop1 header
+    L1->getLatch()->getTerminator()->replaceUsesOfWith(L1->getHeader(),
+                                                       L2->getHeader());
+    L2->getLatch()->getTerminator()->replaceUsesOfWith(L2->getHeader(),
+                                                       L1->getHeader());
+
+    // Removing Loop2 Preheader since it is empty now
+    LI.removeBlock(L2->getPreheader());
+
+    // Recalculating Dominator and Post-Dominator Trees
+    DT.recalculate(F);
+    PDT.recalculate(F);
 
     // Modify the loop body to incorporate the instructions from both loops.
     // We need to ensure that the instructions are ordered correctly to
     // maintain correct program semantics.
 
-    // Update loop-carried dependencies, such as induction variables, to reflect
-    // the new loop structure.
+    // Move instructions from L1 Latch to L2 Latch.
+    moveInstructionsToTheBeginning(*L1->getLatch(), *L2->getLatch(), DT, PDT,
+                                   DI);
+    MergeBlockIntoPredecessor(L1->getLatch()->getUniqueSuccessor(), nullptr,
+                              &LI);
 
-    // Remove the original loops from the LLVM IR.
+    // Recalculating Dominator and Post-Dominator Trees
+    DT.recalculate(F);
+    PDT.recalculate(F);
+
+    // Merging all Loop2 blocks with Loop1 blocks
+    SmallVector<BasicBlock *> Blocks(L2->getLoop()->blocks());
+    for (BasicBlock *BB : Blocks) {
+      L1->getLoop()->addBlockEntry(BB);
+      L2->getLoop()->removeBlockFromLoop(BB);
+
+      // If BB is not a part of Loop2 that means that it was successfully moved
+      // otherwise we need to assign BB to Loop1 inside-of LoopInfo
+      if (LI.getLoopFor(BB) != L2->getLoop())
+        continue;
+      LI.changeLoopFor(BB, L1->getLoop());
+    }
+
+    // Remove the Loop2 from the LLVM IR
+    EliminateUnreachableBlocks(F);
+    LI.erase(L2->getLoop());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(LoopSimplifyID);
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<DependenceAnalysisWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<PostDominatorTreeWrapperPass>();
 
@@ -290,6 +339,7 @@ struct LoopFusion : public FunctionPass {
 
     auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    auto &DI = getAnalysis<DependenceAnalysisWrapperPass>().getDI();
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
@@ -298,29 +348,6 @@ struct LoopFusion : public FunctionPass {
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
     for (const auto &L : FunctionLoops) {
-      dbgs() << "\nNumber of basic blocks: " << L->getNumBlocks() << "\n";
-      auto Preheader = L->getLoopPreheader();
-      auto Header = L->getHeader();
-      auto ExitingBlock = L->getExitingBlock();
-      auto ExitBlock = L->getExitBlock();
-      auto Latch = L->getLoopLatch();
-      dbgs() << "\n"
-             << "\tPreheader: "
-             << (Preheader ? Preheader->getName() : "nullptr") << "\n"
-             << "\tHeader: " << (Header ? Header->getName() : "nullptr") << "\n"
-             << "\tExitingBB: "
-             << (ExitingBlock ? ExitingBlock->getName() : "nullptr") << "\n"
-             << "\tExitBB: " << (ExitBlock ? ExitBlock->getName() : "nullptr")
-             << "\n"
-             << "\tLatch: " << (Latch ? Latch->getName() : "nullptr") << "\n"
-             << "\n";
-
-      dbgs() << "HAVE SAME TRIP COUNTS: "
-             << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
-
-      dbgs() << "ARE ADJECENT: "
-             << areLoopsAdjacent(FunctionLoops[1], FunctionLoops[0]) << '\n';
-
       if (!L->isLoopSimplifyForm()) {
         dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
       }
@@ -330,14 +357,25 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
+    dbgs() << "HAVE SAME TRIP COUNTS: "
+           << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
+
+    dbgs() << "ARE ADJECENT: "
+           << areLoopsAdjacent(FunctionLoops[1], FunctionLoops[0]) << '\n';
+
     dbgs() << "ARE NOT DEPENDANT: "
            << !areDependent(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
 
     dbgs() << "CAN FUSE: "
-           << canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE) << '\n';
+           << canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)
+           << '\n';
 
+    // FIXME: Fix the problem with the order of loops in FusionCandidates
     if (canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
-      fuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
+      dbgs() << "Running loop fusion...\n";
+      FuseLoops(&FusionCandidates[1], &FusionCandidates[0], F, LI, DT, PDT, DI,
+                SE);
+      dbgs() << "Fusion done.\n";
     }
 
     return true;

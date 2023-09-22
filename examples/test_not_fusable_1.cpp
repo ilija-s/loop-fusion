@@ -14,5 +14,6 @@ int main() {
     result2 += result1 + j;
   }
 
-  return 0;
+  // After fusion will return 30 which is not correct, the correct value is 60.
+  return result2;
 }

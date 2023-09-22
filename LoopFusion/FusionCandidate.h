@@ -20,22 +20,20 @@ public:
 
   /// Checks if a loop is a candidate for a loop fusion.
   auto isCandidateForFusion() const -> bool;
-  auto loop() const -> Loop*;
 
-  Loop *getLoop();
-  inline BasicBlock *getPreheader() { return Preheader; };
-  inline BasicBlock *getHeader() { return Header; };
-  inline BasicBlock *getExitingBlock() { return ExitingBlock; };
-  inline BasicBlock *getLatch() { return Latch; };
+  inline auto getLoop() const -> Loop * { return L; };
+  inline auto getPreheader() const -> BasicBlock * { return Preheader; };
+  inline auto getHeader() const -> BasicBlock * { return Header; };
+  inline auto getExitingBlock() const -> BasicBlock * { return ExitingBlock; };
+  inline auto getLatch() const -> BasicBlock * { return Latch; };
+
   void setLoopVariables();
   std::vector<Value *> getLoopVariables();
 
-
 private:
-
   auto hasSingleEntryPoint() const -> bool;
   auto hasSingleExitPoint() const -> bool;
-  
+
   // Loop that represents a fusion candidate
   Loop *L;
 
