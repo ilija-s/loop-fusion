@@ -41,7 +41,7 @@ struct LoopFusion : public FunctionPass {
     }
   }
 
-  bool HaveSameTripCounts(Loop *L1, Loop *L2) {
+  bool HaveSameBound(Loop *L1, Loop *L2) {
     BasicBlock *Loop1Header = L1->getHeader();
 
     Value *Variable1;
@@ -78,6 +78,15 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
+    if (IsLoop1BoundConstant && IsLoop2BoundConstant) {
+      return Loop1Bound == Loop2Bound;
+    } else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
+      return Variable1 == Variable2;
+    }
+    return false;
+  }
+
+  bool HaveSameStartValue(Loop *L1, Loop *L2) {
     int Loop1StartValue = -1;
     bool IsLoop1StartValueConstant = false;
     Value *StartVariable1;
@@ -127,25 +136,76 @@ struct LoopFusion : public FunctionPass {
     } else {
       return false;
     }
-    if (IsLoop1BoundConstant && IsLoop2BoundConstant) {
-      if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
-        return Loop1Bound == Loop2Bound && Loop1StartValue == Loop2StartValue;
-      } else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
-        return Loop1Bound == Loop2Bound && StartVariable1 == StartVariable2;
-      } else {
-        return false;
+
+    if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
+      return Loop1StartValue == Loop2StartValue;
+    } else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
+      return StartVariable1 == StartVariable2;
+    }
+    return false;
+  }
+
+  bool HaveSameLatchValue(Loop *L1, Loop *L2) {
+    BinaryOperator *BinOp1;
+    int Loop1LatchValue = -1;
+    bool IsLoop1LatchConstant = false;
+    Value *Latch1Variable;
+    BasicBlock *Loop1Latch = L1->getLoopLatch();
+    if (Loop1Latch) {
+      for(BasicBlock::iterator I = Loop1Latch->begin(), E = Loop1Latch->end(); I != E; ++I) {
+        Instruction *Instr = &*I;
+        if (isa<BinaryOperator>(Instr)) {
+          BinOp1 = cast<BinaryOperator>(Instr);
+          if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(1))) {
+            Loop1LatchValue = ConstInt->getSExtValue();
+            IsLoop1LatchConstant = true;
+          } else {
+            Latch1Variable = VariablesMap[Instr->getOperand(1)];
+            IsLoop1LatchConstant = false;
+          }
+        }
       }
-    } else if (!IsLoop1BoundConstant && !IsLoop2BoundConstant) {
-      if (IsLoop1StartValueConstant && IsLoop2StartValueConstant) {
-        return Variable1 == Variable2 && Loop1StartValue == Loop2StartValue;
-      } else if (!IsLoop1StartValueConstant && !IsLoop2StartValueConstant) {
-        return Variable1 == Variable2 && StartVariable1 == StartVariable2;
-      } else {
-        return false;
-      }
+    } else {
+      return false;
     }
 
+    BinaryOperator *BinOp2;
+    int Loop2LatchValue = -1;
+    bool IsLoop2LatchConstant = false;
+    Value *Latch2Variable;
+    BasicBlock *Loop2Latch = L2->getLoopLatch();
+    if (Loop2Latch) {
+      for(BasicBlock::iterator I = Loop2Latch->begin(), E = Loop2Latch->end(); I != E; ++I) {
+        Instruction *Instr = &*I;
+        if (isa<BinaryOperator>(Instr)) {
+          BinOp2 = cast<BinaryOperator>(Instr);
+          if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(1))) {
+            Loop2LatchValue = ConstInt->getSExtValue();
+            IsLoop2LatchConstant = true;
+          } else {
+            Latch2Variable = VariablesMap[Instr->getOperand(1)];
+            IsLoop2LatchConstant = false;
+          }
+        }
+      }
+    } else {
+      return false;
+    }
+
+    if (BinOp1->getOpcode() != BinOp2->getOpcode()) {
+      return false;
+    }
+
+    if (IsLoop1LatchConstant && IsLoop2LatchConstant) {
+      return Loop1LatchValue == Loop2LatchValue;
+    } else if (!IsLoop1LatchConstant && !IsLoop2LatchConstant) {
+      return Latch1Variable == Latch2Variable;
+    }
     return false;
+  }
+
+  bool HaveSameTripCounts(Loop *L1, Loop *L2) {
+    return HaveSameBound(L1,L2) && HaveSameStartValue(L1,L2) && HaveSameLatchValue(L1,L2);
   }
 
   /// Do all checks to figure out if loops can be fused.
