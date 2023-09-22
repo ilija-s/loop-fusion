@@ -14,7 +14,4 @@ cd ..
 
 ## Run
 
-```shell
-clang -S -emit-llvm <filename>.cpp
-opt -load build/LoopFusion/libLoopFusion.so -loopfusion --enable-new-pm=0 -S <filename>.ll > /dev/null
-```
+Instructions on how to run the optimization is located inside `examples` directory.
