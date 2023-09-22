@@ -251,8 +251,28 @@ struct LoopFusion : public FunctionPass {
     L1->getExitingBlock()->getTerminator()->replaceUsesOfWith(
         L2->getPreheader(), L2->getHeader());
 
-    // Create a new loop with a combined loop bound that covers the iterations
-    // of both loops being fused.
+    // Preheader of Loop2 is not used anymore
+    L2->getPreheader()->getTerminator()->eraseFromParent();
+    new UnreachableInst(L2->getPreheader()->getContext(), L2->getPreheader());
+
+    // Loop1 latch now jumps to the Loop2 header and Loop2 latch jumps to the
+    // Loop1 header
+    L1->getLatch()->getTerminator()->replaceUsesOfWith(L1->getHeader(),
+                                                       L2->getHeader());
+    L2->getLatch()->getTerminator()->replaceUsesOfWith(L2->getHeader(),
+                                                       L1->getHeader());
+    dbgs() << "Loop basic blocks redirected.\n";
+
+    // Removing Loop2 Preheader since it is empty now
+    LI.removeBlock(L2->getPreheader());
+
+    SE.forgetLoop(L2->getLoop());
+    SE.forgetLoop(L1->getLoop());
+    SE.forgetLoopDispositions();
+
+    // Recalculating Dominator and Post-Dominator Trees
+    DT.recalculate(F);
+    PDT.recalculate(F);
 
     // Modify the loop body to incorporate the instructions from both loops.
     // We need to ensure that the instructions are ordered correctly to
