@@ -12,5 +12,6 @@ int main() {
     result2 = arr[j] * j;
   }
 
+  // Should return 16
   return result2;
 }
