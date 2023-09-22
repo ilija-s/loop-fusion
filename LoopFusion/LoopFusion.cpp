@@ -250,7 +250,7 @@ struct LoopFusion : public FunctionPass {
   /// Do all checks to figure out if loops can be fused.
   bool canFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2) && areLoopsAdjacent(L1->getLoop(), L2->getLoop());
+    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2) && areLoopsAdjacent(L2->getLoop(), L1->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -319,7 +319,7 @@ struct LoopFusion : public FunctionPass {
              << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
 
       dbgs() << "ARE ADJECENT: "
-             << areLoopsAdjacent(FunctionLoops[0], FunctionLoops[1]) << '\n';
+             << areLoopsAdjacent(FunctionLoops[1], FunctionLoops[0]) << '\n';
 
       if (!L->isLoopSimplifyForm()) {
         dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
