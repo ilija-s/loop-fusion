@@ -304,6 +304,10 @@ struct LoopFusion : public FunctionPass {
     }
 
     // Remove the original loops from the LLVM IR.
+    EliminateUnreachableBlocks(F);
+    LI.erase(L2->getLoop());
+
+    dbgs() << "Fusion done.\n";
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
