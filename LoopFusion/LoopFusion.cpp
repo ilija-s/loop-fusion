@@ -281,10 +281,6 @@ struct LoopFusion : public FunctionPass {
     // Removing Loop2 Preheader since it is empty now
     LI.removeBlock(L2->getPreheader());
 
-    SE.forgetLoop(L2->getLoop());
-    SE.forgetLoop(L1->getLoop());
-    SE.forgetLoopDispositions();
-
     // Recalculating Dominator and Post-Dominator Trees
     DT.recalculate(F);
     PDT.recalculate(F);
@@ -309,12 +305,14 @@ struct LoopFusion : public FunctionPass {
       L1->getLoop()->addBlockEntry(BB);
       L2->getLoop()->removeBlockFromLoop(BB);
 
+      // If BB is not a part of Loop2 that means that it was successfully moved
+      // otherwise we need to assign BB to Loop1 inside-of LoopInfo
       if (LI.getLoopFor(BB) != L2->getLoop())
         continue;
       LI.changeLoopFor(BB, L1->getLoop());
     }
 
-    // Remove the original loops from the LLVM IR.
+    // Remove the Loop2 from the LLVM IR
     EliminateUnreachableBlocks(F);
     LI.erase(L2->getLoop());
   }
