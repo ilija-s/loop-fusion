@@ -12,10 +12,15 @@ public:
 
   /// Checks if a loop is a candidate for a loop fusion.
   auto isCandidateForFusion() const -> bool;
+  auto loop() const -> Loop*;
 
   Loop* getLoop();
 
 private:
+
+  auto hasSingleEntryPoint() const -> bool;
+  auto hasSingleExitPoint() const -> bool;
+  
   // Loop that represents a fusion candidate
   Loop *L;
 };

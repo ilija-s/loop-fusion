@@ -5,6 +5,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
@@ -31,6 +32,19 @@ struct LoopFusion : public FunctionPass {
 
   LoopFusion() : FunctionPass(ID) {}
 
+  bool AreLoopsAdjacent(Loop* L1, Loop* L2) {
+
+    // At this point we know that L1 and L2 are both candidates
+    // This means that L1 has one exit block and L2 has one entering block
+    // The only thing is to check if the exit block of L1 is the same as the
+    // entry block of L2
+
+    BasicBlock* L1ExitBlock = L1->getExitBlock();
+    BasicBlock* L2Preheader = L2->getLoopPreheader();
+
+    return L1ExitBlock == L2Preheader;
+  }
+  
   void MapVariables(Function *F) {
     for (BasicBlock &BB : *F) {
       for (Instruction &Instr : BB) {
@@ -211,11 +225,12 @@ struct LoopFusion : public FunctionPass {
   /// Do all checks to figure out if loops can be fused.
   bool CanFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return HaveSameTripCounts(L1->getLoop(), L2->getLoop());
+    return HaveSameTripCounts(L1->getLoop(), L2->getLoop()) && AreLoopsAdjacent(L1->getLoop(), L2->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
   void FuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
+
     // Create a new loop with a combined loop bound that covers the iterations
     // of both loops being fused.
 
@@ -286,7 +301,7 @@ struct LoopFusion : public FunctionPass {
         FusionCandidates.emplace_back(FC);
       }
     }
-
+    
     if (CanFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
       FuseLoops(&FusionCandidates[0], &FusionCandidates[1]);
     }
