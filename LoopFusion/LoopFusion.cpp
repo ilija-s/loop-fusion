@@ -35,7 +35,7 @@ struct LoopFusion : public FunctionPass {
   LoopFusion() : FunctionPass(ID) {}
 
 
-  bool AreLoopsAdjacent(Loop *L1, Loop *L2) {
+  bool areLoopsAdjacent(Loop *L1, Loop *L2) {
     // At this point we know that L1 and L2 are both candidates
     // This means that L1 has one exit block and L2 has one entering block
     // The only thing is to check if the exit block of L1 is the same as the
@@ -250,7 +250,7 @@ struct LoopFusion : public FunctionPass {
   /// Do all checks to figure out if loops can be fused.
   bool canFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2) && AreLoopsAdjacent(L1->getLoop(), L2->getLoop());
+    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2) && areLoopsAdjacent(L1->getLoop(), L2->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -318,6 +318,9 @@ struct LoopFusion : public FunctionPass {
       dbgs() << "HAVE SAME TRIP COUNTS: "
              << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
 
+      dbgs() << "ARE ADJECENT: "
+             << areLoopsAdjacent(FunctionLoops[0], FunctionLoops[1]) << '\n';
+
       if (!L->isLoopSimplifyForm()) {
         dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
       }
@@ -327,8 +330,8 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
-    dbgs() << "ARE DEPENDANT: "
-           << areDependent(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
+    dbgs() << "ARE NOT DEPENDANT: "
+           << !areDependent(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
 
     dbgs() << "CAN FUSE: "
            << canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE) << '\n';
