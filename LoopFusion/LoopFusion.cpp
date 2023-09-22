@@ -34,7 +34,6 @@ struct LoopFusion : public FunctionPass {
 
   LoopFusion() : FunctionPass(ID) {}
 
-
   bool areLoopsAdjacent(Loop *L1, Loop *L2) {
     // At this point we know that L1 and L2 are both candidates
     // This means that L1 has one exit block and L2 has one entering block
@@ -236,9 +235,9 @@ struct LoopFusion : public FunctionPass {
     std::vector<Value *> Variables1 = F1->getLoopVariables();
     std::vector<Value *> Variables2 = F2->getLoopVariables();
 
-    for(Value *V1 : Variables1) {
-      for(Value *V2 : Variables2) {
-        //dbgs() << "VALUE 1: " << V1 << ", VALUE 2: "  << V2 << '\n';
+    for (Value *V1 : Variables1) {
+      for (Value *V2 : Variables2) {
+        // dbgs() << "VALUE 1: " << V1 << ", VALUE 2: "  << V2 << '\n';
         if (V1 == V2) {
           return true;
         }
@@ -250,7 +249,9 @@ struct LoopFusion : public FunctionPass {
   /// Do all checks to figure out if loops can be fused.
   bool canFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2) && areLoopsAdjacent(L2->getLoop(), L1->getLoop());
+    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) &&
+           !areDependent(L1, L2) &&
+           areLoopsAdjacent(L2->getLoop(), L1->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -258,11 +259,10 @@ struct LoopFusion : public FunctionPass {
                  LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
                  DependenceInfo &DI, ScalarEvolution &SE) {
 
-    dbgs() << "Moving instructions from Loop 2 preheader to Loop 1 preheader\n";
+    // Moving instructions from Loop 2 Preheader to Loop 1 Preheader
     moveInstructionsToTheEnd(*L2->getPreheader(), *L1->getPreheader(), DT, PDT,
                              DI);
 
-    dbgs() << "Redirecting basic blocks...\n";
     // Replace all uses of Loop2 Preheader with Loop2 Header
     L1->getExitingBlock()->getTerminator()->replaceUsesOfWith(
         L2->getPreheader(), L2->getHeader());
@@ -277,7 +277,6 @@ struct LoopFusion : public FunctionPass {
                                                        L2->getHeader());
     L2->getLatch()->getTerminator()->replaceUsesOfWith(L2->getHeader(),
                                                        L1->getHeader());
-    dbgs() << "Loop basic blocks redirected.\n";
 
     // Removing Loop2 Preheader since it is empty now
     LI.removeBlock(L2->getPreheader());
@@ -315,16 +314,9 @@ struct LoopFusion : public FunctionPass {
       LI.changeLoopFor(BB, L1->getLoop());
     }
 
-    dbgs() << "Printing Loop1 blocks.\n";
-    for (auto &Block : L1->getLoop()->blocks()) {
-      dbgs() << *Block;
-    }
-
     // Remove the original loops from the LLVM IR.
     EliminateUnreachableBlocks(F);
     LI.erase(L2->getLoop());
-
-    dbgs() << "Fusion done.\n";
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -358,18 +350,6 @@ struct LoopFusion : public FunctionPass {
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
     for (const auto &L : FunctionLoops) {
-      auto Preheader = L->getLoopPreheader();
-      auto Header = L->getHeader();
-      auto ExitingBlock = L->getExitingBlock();
-      auto ExitBlock = L->getExitBlock();
-      auto Latch = L->getLoopLatch();
-
-      dbgs() << "HAVE SAME TRIP COUNTS: "
-             << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
-
-      dbgs() << "ARE ADJECENT: "
-             << areLoopsAdjacent(FunctionLoops[1], FunctionLoops[0]) << '\n';
-
       if (!L->isLoopSimplifyForm()) {
         dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
       }
@@ -379,15 +359,25 @@ struct LoopFusion : public FunctionPass {
       }
     }
 
+    dbgs() << "HAVE SAME TRIP COUNTS: "
+           << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
+
+    dbgs() << "ARE ADJECENT: "
+           << areLoopsAdjacent(FunctionLoops[1], FunctionLoops[0]) << '\n';
+
     dbgs() << "ARE NOT DEPENDANT: "
            << !areDependent(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
 
     dbgs() << "CAN FUSE: "
-           << canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE) << '\n';
-    
-    if (CanFuseLoops(&FusionCandidates[1], &FusionCandidates[0], SE)) {
+           << canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)
+           << '\n';
+
+    // FIXME: Fix the problem with the order of loops in FusionCandidates
+    if (canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
+      dbgs() << "Running loop fusion...\n";
       FuseLoops(&FusionCandidates[1], &FusionCandidates[0], F, LI, DT, PDT, DI,
                 SE);
+      dbgs() << "Fusion done.\n";
     }
 
     return true;
