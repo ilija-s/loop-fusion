@@ -1,9 +1,11 @@
 #include "FusionCandidate.h"
+#include "assert.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopNestAnalysis.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -11,6 +13,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/CodeMoverUtils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 
 using namespace llvm;
@@ -30,6 +33,19 @@ struct LoopFusion : public FunctionPass {
   static char ID; // Pass identification, replacement for typeid
 
   LoopFusion() : FunctionPass(ID) {}
+
+
+  bool AreLoopsAdjacent(Loop *L1, Loop *L2) {
+    // At this point we know that L1 and L2 are both candidates
+    // This means that L1 has one exit block and L2 has one entering block
+    // The only thing is to check if the exit block of L1 is the same as the
+    // entry block of L2
+
+    BasicBlock *L1ExitBlock = L1->getExitBlock();
+    BasicBlock *L2Preheader = L2->getLoopPreheader();
+
+    return L1ExitBlock == L2Preheader;
+  }
 
   void mapVariables(Function *F) {
     for (BasicBlock &BB : *F) {
@@ -154,11 +170,13 @@ struct LoopFusion : public FunctionPass {
     Value *Latch1Variable;
     BasicBlock *Loop1Latch = L1->getLoopLatch();
     if (Loop1Latch) {
-      for(BasicBlock::iterator I = Loop1Latch->begin(), E = Loop1Latch->end(); I != E; ++I) {
+      for (BasicBlock::iterator I = Loop1Latch->begin(), E = Loop1Latch->end();
+           I != E; ++I) {
         Instruction *Instr = &*I;
         if (isa<BinaryOperator>(Instr)) {
           BinOp1 = cast<BinaryOperator>(Instr);
-          if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(1))) {
+          if (ConstantInt *ConstInt =
+                  dyn_cast<ConstantInt>(Instr->getOperand(1))) {
             Loop1LatchValue = ConstInt->getSExtValue();
             IsLoop1LatchConstant = true;
           } else {
@@ -177,11 +195,13 @@ struct LoopFusion : public FunctionPass {
     Value *Latch2Variable;
     BasicBlock *Loop2Latch = L2->getLoopLatch();
     if (Loop2Latch) {
-      for(BasicBlock::iterator I = Loop2Latch->begin(), E = Loop2Latch->end(); I != E; ++I) {
+      for (BasicBlock::iterator I = Loop2Latch->begin(), E = Loop2Latch->end();
+           I != E; ++I) {
         Instruction *Instr = &*I;
         if (isa<BinaryOperator>(Instr)) {
           BinOp2 = cast<BinaryOperator>(Instr);
-          if (ConstantInt *ConstInt = dyn_cast<ConstantInt>(Instr->getOperand(1))) {
+          if (ConstantInt *ConstInt =
+                  dyn_cast<ConstantInt>(Instr->getOperand(1))) {
             Loop2LatchValue = ConstInt->getSExtValue();
             IsLoop2LatchConstant = true;
           } else {
@@ -230,11 +250,12 @@ struct LoopFusion : public FunctionPass {
   /// Do all checks to figure out if loops can be fused.
   bool canFuseLoops(FusionCandidate *L1, FusionCandidate *L2,
                     ScalarEvolution &SE) {
-    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2);
+    return haveSameTripCounts(L1->getLoop(), L2->getLoop()) && !areDependent(L1, L2) && AreLoopsAdjacent(L1->getLoop(), L2->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
   void fuseLoops(FusionCandidate *L1, FusionCandidate *L2) {
+
     // Create a new loop with a combined loop bound that covers the iterations
     // of both loops being fused.
 
