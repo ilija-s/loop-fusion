@@ -7,5 +7,5 @@ for file in *.ll; do
 done
 
 for file in *.cpp; do
-  clang -S -emit-llvm -fno-discard-value-names $file
+  clang -S -emit-llvm -Xclang -disable-O0-optnone -fno-discard-value-names $file
 done
