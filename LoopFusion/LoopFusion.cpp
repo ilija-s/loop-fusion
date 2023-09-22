@@ -341,22 +341,11 @@ struct LoopFusion : public FunctionPass {
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
     for (const auto &L : FunctionLoops) {
-      dbgs() << "\nNumber of basic blocks: " << L->getNumBlocks() << "\n";
       auto Preheader = L->getLoopPreheader();
       auto Header = L->getHeader();
       auto ExitingBlock = L->getExitingBlock();
       auto ExitBlock = L->getExitBlock();
       auto Latch = L->getLoopLatch();
-      dbgs() << "\n"
-             << "\tPreheader: "
-             << (Preheader ? Preheader->getName() : "nullptr") << "\n"
-             << "\tHeader: " << (Header ? Header->getName() : "nullptr") << "\n"
-             << "\tExitingBB: "
-             << (ExitingBlock ? ExitingBlock->getName() : "nullptr") << "\n"
-             << "\tExitBB: " << (ExitBlock ? ExitBlock->getName() : "nullptr")
-             << "\n"
-             << "\tLatch: " << (Latch ? Latch->getName() : "nullptr") << "\n"
-             << "\n";
 
       dbgs() << "HAVE SAME TRIP COUNTS: "
              << HaveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
