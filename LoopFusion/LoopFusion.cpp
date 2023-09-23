@@ -251,7 +251,7 @@ struct LoopFusion : public FunctionPass {
                     ScalarEvolution &SE) {
     return haveSameTripCounts(L1->getLoop(), L2->getLoop()) &&
            !areDependent(L1, L2) &&
-           areLoopsAdjacent(L2->getLoop(), L1->getLoop());
+           areLoopsAdjacent(L1->getLoop(), L2->getLoop());
   }
 
   /// Function that will fuse loops based on previously established candidates.
@@ -359,25 +359,28 @@ struct LoopFusion : public FunctionPass {
       return true;
     }
 
-    dbgs() << "HAVE SAME TRIP COUNTS: "
-           << haveSameTripCounts(FunctionLoops[0], FunctionLoops[1]) << '\n';
+    std::reverse(std::begin(FusionCandidates), std::end(FusionCandidates));
+    for (int I = 0; I < FusionCandidates.size() - 1; ++I) {
+      dbgs() << "HAVE SAME TRIP COUNTS: "
+             << haveSameTripCounts(FusionCandidates[I].getLoop(),
+                                   FusionCandidates[I + 1].getLoop())
+             << '\n';
 
-    dbgs() << "ARE ADJECENT: "
-           << areLoopsAdjacent(FunctionLoops[1], FunctionLoops[0]) << '\n';
+      dbgs() << "ARE ADJECENT: "
+             << areLoopsAdjacent(FusionCandidates[I].getLoop(),
+                                 FusionCandidates[I + 1].getLoop())
+             << '\n';
 
-    dbgs() << "ARE NOT DEPENDANT: "
-           << !areDependent(&FusionCandidates[0], &FusionCandidates[1]) << '\n';
-
-    dbgs() << "CAN FUSE: "
-           << canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)
-           << '\n';
-
-    // FIXME: Fix the problem with the order of loops in FusionCandidates
-    if (canFuseLoops(&FusionCandidates[0], &FusionCandidates[1], SE)) {
-      dbgs() << "Running loop fusion...\n";
-      FuseLoops(&FusionCandidates[1], &FusionCandidates[0], F, LI, DT, PDT, DI,
-                SE);
-      dbgs() << "Fusion done.\n";
+      dbgs() << "ARE NOT DEPENDANT: "
+             << !areDependent(&FusionCandidates[I], &FusionCandidates[I + 1])
+             << '\n';
+      dbgs() << "CAN FUSE: "
+             << canFuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], SE)
+             << '\n';
+      if (canFuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], SE)) {
+        FuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], F, LI, DT,
+                  PDT, DI, SE);
+      }
     }
 
     return true;
