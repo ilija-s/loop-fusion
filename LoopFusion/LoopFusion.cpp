@@ -348,13 +348,15 @@ struct LoopFusion : public FunctionPass {
     // Collect fusion candidates.
     SmallVector<Loop *> FunctionLoops(LI.begin(), LI.end());
     for (const auto &L : FunctionLoops) {
-      if (!L->isLoopSimplifyForm()) {
-        dbgs() << "Loop " << L->getName() << " is not in simplified form\n";
-      }
       FusionCandidate FC(L);
       if (FC.isCandidateForFusion()) {
         FusionCandidates.emplace_back(FC);
       }
+    }
+
+    if (FusionCandidates.size() < 2) {
+      dbgs() << "Not enough candidates for fusion.\n";
+      return true;
     }
 
     dbgs() << "HAVE SAME TRIP COUNTS: "
