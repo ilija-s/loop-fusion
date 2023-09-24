@@ -324,6 +324,9 @@ struct LoopFusion : public FunctionPass {
     L2->getLatch()->getTerminator()->replaceUsesOfWith(L2->getHeader(),
                                                        L1->getHeader());
 
+    DT.recalculate(F);
+    PDT.recalculate(F);
+
     // Removing Loop2 Preheader since it is empty now
     LI.removeBlock(L2->getPreheader());
 
@@ -336,10 +339,9 @@ struct LoopFusion : public FunctionPass {
     // maintain correct program semantics.
 
     // Move instructions from L1 Latch to L2 Latch.
-    moveInstructionsToTheBeginning(*L1->getLatch(), *L2->getLatch(), DT, PDT,
-                                   DI);
+    moveInstructionsToBeginningFromTo(*L1->getLatch(), *L2->getLatch());
     MergeBlockIntoPredecessor(L1->getLatch()->getUniqueSuccessor(), nullptr,
-                              &LI);
+                              &LI, nullptr, nullptr, false, &DT);
 
     // Recalculating Dominator and Post-Dominator Trees
     DT.recalculate(F);
