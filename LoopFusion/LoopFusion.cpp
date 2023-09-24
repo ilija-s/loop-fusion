@@ -230,7 +230,7 @@ struct LoopFusion : public FunctionPass {
     BasicBlock *Header = L->getHeader();
     Value *Counter;
     for (Instruction &Instr : *Header) {
-      if(isa<LoadInst>(&Instr)) {
+      if (isa<LoadInst>(&Instr)) {
         Counter = Instr.getOperand(0);
         break;
       }
@@ -251,7 +251,8 @@ struct LoopFusion : public FunctionPass {
 
   bool haveSameTripCounts(Loop *L1, Loop *L2) {
     return haveSameBound(L1, L2) && haveSameStartValue(L1, L2) &&
-           haveSameLatchValue(L1, L2) && !changesCounter(L1) && !changesCounter(L2);
+           haveSameLatchValue(L1, L2) && !changesCounter(L1) &&
+           !changesCounter(L2);
   }
 
   bool areDependent(FusionCandidate *F1, FusionCandidate *F2) {
@@ -301,7 +302,7 @@ struct LoopFusion : public FunctionPass {
   }
 
   /// Function that will fuse loops based on previously established candidates.
-  void FuseLoops(FusionCandidate *L1, FusionCandidate *L2, Function &F,
+  void fuseLoops(FusionCandidate *L1, FusionCandidate *L2, Function &F,
                  LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
                  DependenceInfo &DI, ScalarEvolution &SE) {
 
@@ -426,7 +427,7 @@ struct LoopFusion : public FunctionPass {
              << canFuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], SE)
              << '\n';
       if (canFuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], SE)) {
-        FuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], F, LI, DT,
+        fuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], F, LI, DT,
                   PDT, DI, SE);
       }
     }
