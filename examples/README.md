@@ -18,7 +18,7 @@ $ ./run_loop_fusion.sh
 
 ### How does the fusion algorithm work?
 
-The algorithm consist of seven key steps:
+The algorithm consist of six key steps:
 
 1) Moving instructions from the L2 Exit block to L1 Preheader
   ![image](https://github.com/ilija-s/loop-fusion/assets/46342896/d5d4e01f-94f3-489b-9ce3-a70fe4ae3248)
@@ -44,3 +44,21 @@ Loop fusion for `test_fusable_2.cpp`:
 ![opt_test_fusable_2_3](https://github.com/ilija-s/loop-fusion/assets/46342896/4a13134e-4664-4a1f-905c-c6585e1634a3)
 
 ![opt_test_fusable_2_4](https://github.com/ilija-s/loop-fusion/assets/46342896/826bf99d-f66b-4728-b7fc-f10a217f038e)
+
+### Other examples
+
+#### `test_fusable_1.cpp`
+
+![opt_test_fusable_1](https://github.com/ilija-s/loop-fusion/assets/46342896/c73105c8-cc9e-4bf7-9e88-0824a4ba9812)
+
+#### `test_fusable_4.cpp`
+
+![opt_test_fusable_4](https://github.com/ilija-s/loop-fusion/assets/46342896/46b34103-aa76-496a-9a6f-bf8023134e53)
+
+#### `test_fusable_5.cpp`
+
+![opt_test_fusable_5](https://github.com/ilija-s/loop-fusion/assets/46342896/fa60656a-0a95-42bb-952e-6e73cf8327c5)
+
+#### `test_fusable_6.cpp`
+
+![opt_test_fusable_6](https://github.com/ilija-s/loop-fusion/assets/46342896/37d715d6-6e14-4786-b4c3-04de05fb5ca4)
