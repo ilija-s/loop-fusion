@@ -230,7 +230,7 @@ struct LoopFusion : public FunctionPass {
     BasicBlock *Header = L->getHeader();
     Value *Counter;
     for (Instruction &Instr : *Header) {
-      if(isa<LoadInst>(&Instr)) {
+      if (isa<LoadInst>(&Instr)) {
         Counter = Instr.getOperand(0);
         break;
       }
@@ -251,7 +251,8 @@ struct LoopFusion : public FunctionPass {
 
   bool haveSameTripCounts(Loop *L1, Loop *L2) {
     return haveSameBound(L1, L2) && haveSameStartValue(L1, L2) &&
-           haveSameLatchValue(L1, L2) && !changesCounter(L1) && !changesCounter(L2);
+           haveSameLatchValue(L1, L2) && !changesCounter(L1) &&
+           !changesCounter(L2);
   }
 
   bool areDependent(FusionCandidate *F1, FusionCandidate *F2) {
@@ -292,8 +293,16 @@ struct LoopFusion : public FunctionPass {
            areLoopsAdjacent(L1->getLoop(), L2->getLoop());
   }
 
+  void moveInstructionsToBeginningFromTo(BasicBlock &FromBB, BasicBlock &ToBB) {
+    for (Instruction &I : make_early_inc_range(drop_begin(reverse(FromBB)))) {
+      Instruction *MovePos = ToBB.getFirstNonPHIOrDbg();
+
+      I.moveBefore(MovePos);
+    }
+  }
+
   /// Function that will fuse loops based on previously established candidates.
-  void FuseLoops(FusionCandidate *L1, FusionCandidate *L2, Function &F,
+  void fuseLoops(FusionCandidate *L1, FusionCandidate *L2, Function &F,
                  LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
                  DependenceInfo &DI, ScalarEvolution &SE) {
 
@@ -303,7 +312,7 @@ struct LoopFusion : public FunctionPass {
 
     // Replace all uses of Loop2 Preheader with Loop2 Header
     L1->getExitingBlock()->getTerminator()->replaceUsesOfWith(
-        L2->getPreheader(), L2->getHeader());
+        L2->getPreheader(), L2->getExitBlock());
 
     // Preheader of Loop2 is not used anymore
     L2->getPreheader()->getTerminator()->eraseFromParent();
@@ -315,6 +324,9 @@ struct LoopFusion : public FunctionPass {
                                                        L2->getHeader());
     L2->getLatch()->getTerminator()->replaceUsesOfWith(L2->getHeader(),
                                                        L1->getHeader());
+
+    DT.recalculate(F);
+    PDT.recalculate(F);
 
     // Removing Loop2 Preheader since it is empty now
     LI.removeBlock(L2->getPreheader());
@@ -328,10 +340,9 @@ struct LoopFusion : public FunctionPass {
     // maintain correct program semantics.
 
     // Move instructions from L1 Latch to L2 Latch.
-    moveInstructionsToTheBeginning(*L1->getLatch(), *L2->getLatch(), DT, PDT,
-                                   DI);
+    moveInstructionsToBeginningFromTo(*L1->getLatch(), *L2->getLatch());
     MergeBlockIntoPredecessor(L1->getLatch()->getUniqueSuccessor(), nullptr,
-                              &LI);
+                              &LI, nullptr, nullptr, false, &DT);
 
     // Recalculating Dominator and Post-Dominator Trees
     DT.recalculate(F);
@@ -416,7 +427,7 @@ struct LoopFusion : public FunctionPass {
              << canFuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], SE)
              << '\n';
       if (canFuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], SE)) {
-        FuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], F, LI, DT,
+        fuseLoops(&FusionCandidates[I], &FusionCandidates[I + 1], F, LI, DT,
                   PDT, DI, SE);
       }
     }
