@@ -8,15 +8,14 @@ using namespace llvm;
 /// Class used to represent a fusion candidate.
 class FusionCandidate {
 public:
-
   FusionCandidate(Loop *L) : L(L) {
     Preheader = L->getLoopPreheader();
     Header = L->getHeader();
     ExitingBlock = L->getExitingBlock();
     Latch = L->getLoopLatch();
+    ExitBlock = L->getExitBlock();
     this->setLoopVariables();
   };
-
 
   /// Checks if a loop is a candidate for a loop fusion.
   auto isCandidateForFusion() const -> bool;
@@ -25,6 +24,7 @@ public:
   inline auto getPreheader() const -> BasicBlock * { return Preheader; };
   inline auto getHeader() const -> BasicBlock * { return Header; };
   inline auto getExitingBlock() const -> BasicBlock * { return ExitingBlock; };
+  inline auto getExitBlock() const -> BasicBlock * { return ExitBlock; };
   inline auto getLatch() const -> BasicBlock * { return Latch; };
 
   void setLoopVariables();
@@ -43,6 +43,7 @@ private:
   BasicBlock *Preheader;
   BasicBlock *Header;
   BasicBlock *ExitingBlock;
+  BasicBlock *ExitBlock;
   BasicBlock *Latch;
 };
 
