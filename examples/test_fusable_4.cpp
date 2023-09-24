@@ -17,7 +17,7 @@ int main() {
     if (i < n / 2) {
       B[i] = i * 2;
     } else {
-      B[i] = ++i;
+      B[i] = i + 1;
     }
   }
 

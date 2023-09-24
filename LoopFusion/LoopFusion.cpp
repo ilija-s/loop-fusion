@@ -226,9 +226,32 @@ struct LoopFusion : public FunctionPass {
     return false;
   }
 
+  bool changesCounter(Loop *L) {
+    BasicBlock *Header = L->getHeader();
+    Value *Counter;
+    for (Instruction &Instr : *Header) {
+      if(isa<LoadInst>(&Instr)) {
+        Counter = Instr.getOperand(0);
+        break;
+      }
+    }
+    for (BasicBlock *BB : L->getBlocks()) {
+      if (BB != Header && !L->isLoopLatch(BB) && !L->isLoopExiting(BB)) {
+        for (Instruction &Instr : *BB) {
+          if (isa<StoreInst>(&Instr)) {
+            if (Instr.getOperand(1) == Counter) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   bool haveSameTripCounts(Loop *L1, Loop *L2) {
     return haveSameBound(L1, L2) && haveSameStartValue(L1, L2) &&
-           haveSameLatchValue(L1, L2);
+           haveSameLatchValue(L1, L2) && !changesCounter(L1) && !changesCounter(L2);
   }
 
   bool areDependent(FusionCandidate *F1, FusionCandidate *F2) {
