@@ -28,7 +28,8 @@ public:
   inline auto getLatch() const -> BasicBlock * { return Latch; };
 
   void setLoopVariables();
-  std::vector<Value *> getLoopVariables();
+  std::vector<Value *> getWriteVariables();
+  std::vector<Value *> getReadVariables();
 
 private:
   auto hasSingleEntryPoint() const -> bool;
@@ -37,7 +38,8 @@ private:
   // Loop that represents a fusion candidate
   Loop *L;
 
-  std::vector<Value *> LoopVariables;
+  std::vector<Value *> WriteVariables;
+  std::vector<Value *> ReadVariables;
   BasicBlock *Preheader;
   BasicBlock *Header;
   BasicBlock *ExitingBlock;

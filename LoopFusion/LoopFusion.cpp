@@ -232,12 +232,27 @@ struct LoopFusion : public FunctionPass {
   }
 
   bool areDependent(FusionCandidate *F1, FusionCandidate *F2) {
-    std::vector<Value *> Variables1 = F1->getLoopVariables();
-    std::vector<Value *> Variables2 = F2->getLoopVariables();
+    std::vector<Value *> ReadVariables1 = F1->getReadVariables();
+    std::vector<Value *> ReadVariables2 = F2->getReadVariables();
+    std::vector<Value *> WriteVairables1 = F1->getWriteVariables();
+    std::vector<Value *> WriteVariables2 = F2->getWriteVariables();
 
-    for (Value *V1 : Variables1) {
-      for (Value *V2 : Variables2) {
+    for (Value *V1 : WriteVairables1) {
+      for (Value *V2 : ReadVariables2) {
         // dbgs() << "VALUE 1: " << V1 << ", VALUE 2: "  << V2 << '\n';
+        if (V1 == V2) {
+          return true;
+        }
+      }
+      for (Value *V2 : WriteVariables2) {
+        // dbgs() << "VALUE 1: " << V1 << ", VALUE 2: "  << V2 << '\n';
+        if (V1 == V2) {
+          return true;
+        }
+      }
+    }
+    for (Value *V1 : WriteVariables2) {
+      for (Value *V2 : ReadVariables1) {
         if (V1 == V2) {
           return true;
         }

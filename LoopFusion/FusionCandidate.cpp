@@ -67,24 +67,41 @@ auto FusionCandidate::hasSingleExitPoint() const -> bool {
 }
 
 void FusionCandidate::setLoopVariables() {
+  Value *ArrayValue;
+  bool WasArray = false;
   BasicBlock *Header = L->getHeader();
   for (BasicBlock *BB : L->getBlocks()) {
     if (BB != Header && !L->isLoopLatch(BB) && !L->isLoopExiting(BB)) {
       for (Instruction &Instr : *BB) {
         if (isa<LoadInst>(&Instr)) {
-          LoopVariables.push_back(Instr.getOperand(0));
+          if (WasArray) {
+            ReadVariables.push_back(ArrayValue);
+            WasArray = false;
+            continue;
+          }
+          ReadVariables.push_back(Instr.getOperand(0));
         }
         if (isa<StoreInst>(&Instr)) {
-          LoopVariables.push_back(Instr.getOperand(1));
+          if (WasArray) {
+            WriteVariables.push_back(ArrayValue);
+            WasArray = false;
+            continue;
+          }
+          WriteVariables.push_back(Instr.getOperand(1));
         }
         if (isa<GetElementPtrInst>(&Instr)) {
-          LoopVariables.push_back(Instr.getOperand(0));
+          ArrayValue = (Instr.getOperand(0));
+          WasArray = true;
         }
       }
     }
   }
 }
 
-std::vector<Value *> FusionCandidate::getLoopVariables() {
-  return LoopVariables;
+std::vector<Value *> FusionCandidate::getReadVariables() {
+  return ReadVariables;
+}
+
+std::vector<Value *> FusionCandidate::getWriteVariables() {
+  return WriteVariables;
 }
