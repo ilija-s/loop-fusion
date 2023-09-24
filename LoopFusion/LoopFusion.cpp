@@ -311,7 +311,7 @@ struct LoopFusion : public FunctionPass {
 
     // Replace all uses of Loop2 Preheader with Loop2 Header
     L1->getExitingBlock()->getTerminator()->replaceUsesOfWith(
-        L2->getPreheader(), L2->getHeader());
+        L2->getPreheader(), L2->getExitBlock());
 
     // Preheader of Loop2 is not used anymore
     L2->getPreheader()->getTerminator()->eraseFromParent();
