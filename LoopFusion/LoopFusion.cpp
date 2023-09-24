@@ -292,6 +292,14 @@ struct LoopFusion : public FunctionPass {
            areLoopsAdjacent(L1->getLoop(), L2->getLoop());
   }
 
+  void moveInstructionsToBeginningFromTo(BasicBlock &FromBB, BasicBlock &ToBB) {
+    for (Instruction &I : make_early_inc_range(drop_begin(reverse(FromBB)))) {
+      Instruction *MovePos = ToBB.getFirstNonPHIOrDbg();
+
+      I.moveBefore(MovePos);
+    }
+  }
+
   /// Function that will fuse loops based on previously established candidates.
   void FuseLoops(FusionCandidate *L1, FusionCandidate *L2, Function &F,
                  LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
