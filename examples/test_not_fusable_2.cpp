@@ -1,5 +1,6 @@
 // Loops won't be fused, since the first loop iterates `m` times, and the second
-// loop iterates `n` times.
+// loop iterates `n` times. Also, the first loop uses a value that the second
+// loop changes, making them dependant.
 int main() {
   int p = 4;
   int n = 5;

@@ -69,8 +69,21 @@ auto FusionCandidate::hasSingleExitPoint() const -> bool {
 void FusionCandidate::setLoopVariables() {
   Value *ArrayValue;
   bool WasArray = false;
+  bool FirstHeaderLoad = true;
   BasicBlock *Header = L->getHeader();
   for (BasicBlock *BB : L->getBlocks()) {
+    if (BB == Header) {
+      for (Instruction &Instr : *BB) {
+        if (isa<LoadInst>(&Instr)) {
+          if (FirstHeaderLoad) {
+            WriteVariables.push_back(Instr.getOperand(0));
+            FirstHeaderLoad = false;
+            continue;
+          }
+          ReadVariables.push_back(Instr.getOperand(0));
+        }
+      }
+    }
     if (BB != Header && !L->isLoopLatch(BB) && !L->isLoopExiting(BB)) {
       for (Instruction &Instr : *BB) {
         if (isa<LoadInst>(&Instr)) {
