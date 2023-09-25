@@ -37,13 +37,17 @@ The algorithm consist of six key steps:
 
 Loop fusion for `test_fusable_2.cpp`:
 
-![opt_test_fusable_2_1](https://github.com/ilija-s/loop-fusion/assets/46342896/1142f501-f1e4-4a08-a6e9-93cfdfdf7c00)
+![image](https://github.com/ilija-s/loop-fusion/assets/46342896/352aed3f-ce3e-4161-b624-24455a5c2c84)
 
-![opt_test_fusable_2_2](https://github.com/ilija-s/loop-fusion/assets/46342896/2ed8a35c-6762-4a6d-b64f-b9d1170c9295)
+![image](https://github.com/ilija-s/loop-fusion/assets/46342896/5eaaad8d-3705-480e-bf14-eaa77fd3033e)
 
-![opt_test_fusable_2_3](https://github.com/ilija-s/loop-fusion/assets/46342896/4a13134e-4664-4a1f-905c-c6585e1634a3)
+![image](https://github.com/ilija-s/loop-fusion/assets/46342896/04f8ea9e-0a4b-4c90-924c-40fd47e70f3a)
 
-![opt_test_fusable_2_4](https://github.com/ilija-s/loop-fusion/assets/46342896/826bf99d-f66b-4728-b7fc-f10a217f038e)
+![image](https://github.com/ilija-s/loop-fusion/assets/46342896/80e8e5a4-0c85-4c54-a38b-a7f97d762203)
+
+![image](https://github.com/ilija-s/loop-fusion/assets/46342896/01519ef7-a0a3-4c28-9fb2-21665af62d9b)
+
+![image](https://github.com/ilija-s/loop-fusion/assets/46342896/45ecc20f-4114-42dd-800b-0954f54ee8e5)
 
 ### Other examples
 
